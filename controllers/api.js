@@ -1,239 +1,296 @@
-
 var GitRepo = require("../GitRepo.js");
 var logger = require("../logger/logger.js");
 var Promise = require("promise");
 var moment = require("moment");
 
-module.exports = function(app){
+module.exports = function (app) {
 
-	return {
-		release:{
-			post: function(req,res){
+    return {
+        commit: {
+            webhook: {
+                post: function (req, res) {
+                    var body = req.body;
 
-				var body = req.body;
+                    var webhook = new app.models.Webhook();
 
-				var release = new app.models.Release();
+                    webhook.repository = body.repository.name;
+                    webhook.truncated = body.push.changes[0].truncated;
 
-				release.application = req.params.app_name;
-				release.environment = body.environment;
-				release.reference = body.reference;
-				release.name = body.name;
+                    res.send(webhook)
+                }
+            }
+        },
+        release: {
+            post: function (req, res) {
 
-				app.models.Application.findOne({name:release.application},{_id:false }).then(function(application){
-					if (!application) {
-						errorHandler(`Application ${release.application} not found`, res, 404);
-						return;
-					}
-					app.models.Release.findOne({name:release.name , application: release.application}).limit(1).then(function(targetRelease){
-						if (targetRelease) {
-							logger.info(`Release ${release.name} already exist!`)
-							res.status(200);
-							res.json(targetRelease)
-							return;
-						}else{
+                var body = req.body;
 
-							application.lastRelease().then(function(lastRelease){
-								release.compare = lastRelease;
+                var release = new app.models.Release();
+                console.log(release)
+                release.application = req.params.app_name;
+                release.environment = body.environment;
+                release.reference = body.reference;
+                release.name = body.name;
 
-								var gitRepo = new GitRepo( application.repository.owner ,application.repository.name);
+                app.models.Application.findOne({name: release.application}, {_id: false}).then(function (application) {
+                    if (!application) {
+                        errorHandler(`Application ${release.application} not found`, res, 404);
+                        return;
+                    }
+                    app.models.Release.findOne({
+                        name: release.name,
+                        application: release.application
+                    }).limit(1).then(function (targetRelease) {
+                        if (targetRelease) {
+                            logger.info(`Release ${release.name} already exist!`)
+                            res.status(200);
+                            res.json(targetRelease)
+                            return;
+                        } else {
 
-								gitRepo.commits(release.name, release.compare).then(commits=>gitRepo.withDiff(commits)).then(function(commits){
+                            application.lastRelease().then(function (lastRelease) {
+                                release.compare = lastRelease;
 
-									release.commits = commits;
-									release._application = application;
-									release.save().then(function(release){
-										res.status(201);
-										res.json(release);
-									}, err => errorHandler(err,res));
+                                var gitRepo = new GitRepo(application.repository.owner, application.repository.name);
 
-								}, err => errorHandler(err,res));
-							},err => errorHandler(err,res));
-						}
+                                gitRepo.commits(release.name, release.compare).then(commits=>gitRepo.withDiff(commits)
+                            ).
+                                then(function (commits) {
 
-					}, err => errorHandler(err,res));
+                                    release.commits = commits;
+                                    release._application = application;
+                                    release.save().then(function (release) {
+                                        res.status(201);
+                                        res.json(release);
+                                    }, err => errorHandler(err, res)
+                                )
+                                    ;
 
-				}).catch(err => errorHandler(err,res));
+                                }, err=>errorHandler(err, res)
+                            )
+                                ;
+                            }, err=>errorHandler(err, res)
+                        )
+                            ;
+                        }
 
-			},
-			get: function(req,res){
+                    }, err=>errorHandler(err, res)
+                )
+                    ;
 
-				let application = req.params.app_name;
-				let release = req.params.name;
+                }).catch(err=>errorHandler(err, res)
+            )
+                ;
 
-				app.models.Release.findOne({application:application, name:release},{_id:false,commits:false }, {sort:{"reference.created":1}},function(err, release){
-							if (release){
-								 res.json(release);
-						 }else{
-								 errorHandler("release não foi encontrada", res, 404);
-								 return;
-						 }
-				  });
-					return
+            },
+            get: function (req, res) {
 
-			},
-			delete: function(req,res){
+                let application = req.params.app_name;
+                let release = req.params.name;
 
-				let applicationName = req.params.app_name;
-				let releaseName = req.params.name;
-				app.models.Application.findOne({name:applicationName},{_id:false }).then(function(application){
-					if (!application) {
-							errorHandler(`Application ${applicationName} not found`, res, 404);
-							return;
-					}
-					app.models.Release.findOne({name:releaseName , application: applicationName}).limit(1).then(function(release){
-						if (!release) {
-								errorHandler(`Release ${releaseName} not found`, res, 404);
-								return;
-						}
-						application.lastRelease().then(function(lastReleaseName){
+                app.models.Release.findOne({application: application, name: release}, {
+                    _id: false,
+                    commits: false
+                }, {sort: {"reference.created": 1}}, function (err, release) {
+                    if (release) {
+                        res.json(release);
+                    } else {
+                        errorHandler("release não foi encontrada", res, 404);
+                        return;
+                    }
+                });
+                return
 
-							if(release.name==lastReleaseName){
-								 app.models.Release.remove({name:release.name}).then(function(){
-								 	res.status(204);
-								 	res.end();
-								 }).catch(err => errorHandler(err,res));
-							}else{
+            },
+            delete: function (req, res) {
 
-								application.afterRelease(release).then(function(afterRelease){
+                let applicationName = req.params.app_name;
+                let releaseName = req.params.name;
+                app.models.Application.findOne({name: applicationName}, {_id: false}).then(function (application) {
+                    if (!application) {
+                        errorHandler(`Application ${applicationName} not found`, res, 404);
+                        return;
+                    }
+                    app.models.Release.findOne({
+                        name: releaseName,
+                        application: applicationName
+                    }).limit(1).then(function (release) {
+                        if (!release) {
+                            errorHandler(`Release ${releaseName} not found`, res, 404);
+                            return;
+                        }
+                        application.lastRelease().then(function (lastReleaseName) {
 
-									afterRelease.compare = release.compare
+                            if (release.name == lastReleaseName) {
+                                app.models.Release.remove({name: release.name}).then(function () {
+                                    res.status(204);
+                                    res.end();
+                                }).catch(err=>errorHandler(err, res)
+                            )
+                                ;
+                            } else {
 
-									var gitRepo = new GitRepo( application.repository.owner ,application.repository.name);
+                                application.afterRelease(release).then(function (afterRelease) {
 
-									gitRepo.commits(afterRelease.name, afterRelease.compare).then(commits=>gitRepo.withDiff(commits)).then(function(commits){
+                                    afterRelease.compare = release.compare
 
-										afterRelease.commits = commits;
-										afterRelease._application = application;
+                                    var gitRepo = new GitRepo(application.repository.owner, application.repository.name);
 
-										afterRelease.save().then(function(releaseUpdate){
-											app.models.Release.remove({name:release.name}).then(function(){
-		 								 	res.status(204);
-		 								 	res.end();
-		 								 }).catch(err => errorHandler(err,res));
-										}, err => errorHandler(err,res));
+                                    gitRepo.commits(afterRelease.name, afterRelease.compare).then(commits=>gitRepo.withDiff(commits)
+                                ).
+                                    then(function (commits) {
 
-									}, err => errorHandler(err,res));
+                                        afterRelease.commits = commits;
+                                        afterRelease._application = application;
 
-								},err => errorHandler(err,res));
+                                        afterRelease.save().then(function (releaseUpdate) {
+                                            app.models.Release.remove({name: release.name}).then(function () {
+                                                res.status(204);
+                                                res.end();
+                                            }).catch(err=>errorHandler(err, res)
+                                        )
+                                            ;
+                                        }, err=>errorHandler(err, res)
+                                    )
+                                        ;
 
-							}
-						},err => errorHandler(err,res));
-					},err=> errorHandler(err,res));
+                                    }, err=>errorHandler(err, res)
+                                )
+                                    ;
 
-				 }).catch(err => errorHandler(err,res));
-			}
-		},
-		releases:{
-			get: function(req,res){
+                                }, err=>errorHandler(err, res)
+                            )
+                                ;
 
-				var application = req.params.app_name;
-				var createdDate = req.query.created;
-				var query = {application:application};
+                            }
+                        }, err=>errorHandler(err, res)
+                    )
+                        ;
+                    }, err=>errorHandler(err, res)
+                )
+                    ;
 
-				if (createdDate) {
-					var validDate = moment(createdDate, 'YYYY-MM-DD', true).isValid();
-					if (validDate){
-						let momentCreateDate = moment(createdDate)
-						let createdDateUntil = momentCreateDate.clone().add(1,"day").format();
-						let createdDateSince = momentCreateDate.format();
+                }).catch(err=>errorHandler(err, res)
+            )
+                ;
+            }
+        },
+        releases: {
+            get: function (req, res) {
 
-						query.created = {$gte: createdDateSince,$lt: createdDateUntil};
+                var application = req.params.app_name;
+                var createdDate = req.query.created;
+                var query = {application: application};
 
-					} else {
-						errorHandler("data invalida", res, 400);
-						return;
-					}
-				}
+                if (createdDate) {
+                    var validDate = moment(createdDate, 'YYYY-MM-DD', true).isValid();
+                    if (validDate) {
+                        let momentCreateDate = moment(createdDate)
+                        let createdDateUntil = momentCreateDate.clone().add(1, "day").format();
+                        let createdDateSince = momentCreateDate.format();
 
-				app.models.Release.find(query,{_id:false,commits:false }, {sort:{"reference.created":1}},function(err, releases){
-									res.json(releases);
-							});
+                        query.created = {$gte: createdDateSince, $lt: createdDateUntil};
 
-			}
-		},
-		refresh:{
-			get: function(req,res){
+                    } else {
+                        errorHandler("data invalida", res, 400);
+                        return;
+                    }
+                }
 
-				app.models.Application.findOne({name: req.params.app_name},{_id:false }).then(function(application){
+                app.models.Release.find(query, {
+                    _id: false,
+                    commits: false
+                }, {sort: {"reference.created": 1}}, function (err, releases) {
+                    res.json(releases);
+                });
 
-					if (!application) {
-						errorHandler(`Application ${req.params.app_name} not found`, res, 404);
-						return;
-					}
+            }
+        },
+        refresh: {
+            get: function (req, res) {
 
-					app.models.Release.find({application:req.params.app_name},function(err, releases){
-	                	for (var i = 0; i < releases.length; i++){
-	                		releases[i]._application = application;
-	                		releases[i].save();
-											logger.info(`Release ${releases[i].name} refreshed`);
-	                	}
-	            	});
+                app.models.Application.findOne({name: req.params.app_name}, {_id: false}).then(function (application) {
 
-					res.status(202);
-					res.end();
+                    if (!application) {
+                        errorHandler(`Application ${req.params.app_name} not found`, res, 404);
+                        return;
+                    }
 
-				}).catch(err => errorHandler(err,res));
+                    app.models.Release.find({application: req.params.app_name}, function (err, releases) {
+                        for (var i = 0; i < releases.length; i++) {
+                            releases[i]._application = application;
+                            releases[i].save();
+                            logger.info(`Release ${releases[i].name} refreshed`);
+                        }
+                    });
 
-			}
-		},
-		application:{
+                    res.status(202);
+                    res.end();
 
-			issues:{
+                }).catch(err=>errorHandler(err, res)
+            )
+                ;
 
-				put: function(req,res){
+            }
+        },
+        application: {
 
-					if (!req.body||!req.body.patterns){
-						errorHandler("pattern list expected",res,400);
-						return;
-					}
+            issues: {
 
-					app.models.Application.findOne({name: req.params.app_name}).then(function(application){
-						if (!application.issues) {
-							application.issues={}
-						}
-						application.issues= {patterns : req.body.patterns};
-						application.save();
-						res.status(204);
-						res.end();
-					});
+                put: function (req, res) {
+
+                    if (!req.body || !req.body.patterns) {
+                        errorHandler("pattern list expected", res, 400);
+                        return;
+                    }
+
+                    app.models.Application.findOne({name: req.params.app_name}).then(function (application) {
+                        if (!application.issues) {
+                            application.issues = {}
+                        }
+                        application.issues = {patterns: req.body.patterns};
+                        application.save();
+                        res.status(204);
+                        res.end();
+                    });
 
 
-				}
+                }
 
-			},
-			post: function(req,res){
+            },
+            post: function (req, res) {
 
-				var body = req.body;
-				var application = new app.models.Application(body);
+                var body = req.body;
+                var application = new app.models.Application(body);
 
-				application.save(function(err,app){
-					if (err){
-						errorHandler(err,res,400);
-						return;
-					}
-					logger.info(`Application ${app.name} created`)
-					res.location("/apps/" + app.name);
-					res.status(201);
-					res.end();
-				})
+                application.save(function (err, app) {
+                    if (err) {
+                        errorHandler(err, res, 400);
+                        return;
+                    }
+                    logger.info(`Application ${app.name} created`)
+                    res.location("/apps/" + app.name);
+                    res.status(201);
+                    res.end();
+                })
 
-			},
-			get: function(req,res){
+            },
+            get: function (req, res) {
 
-				app.models.Application.find().then(function(apps){
-					res.json(apps);
-				})
+                app.models.Application.find().then(function (apps) {
+                    res.json(apps);
+                })
 
-			}
-		}
-	}
+            }
+        }
+    }
 
 }
 
-function errorHandler(err, response, statusCode){
-	statusCode = statusCode || 500;
-	response.status(statusCode);
-	var message = err instanceof Error ? err.message : err
-	logger.error(`${message}`, { stacktrace: err, statusCode: statusCode});
-	response.json({"message" : message});
+function errorHandler(err, response, statusCode) {
+    statusCode = statusCode || 500;
+    response.status(statusCode);
+    var message = err instanceof Error ? err.message : err
+    logger.error(`${message}`, {stacktrace: err, statusCode: statusCode});
+    response.json({"message": message});
 }

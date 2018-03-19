@@ -5,11 +5,9 @@ var Promise = require("promise");
 module.exports = function(app){
 
 	return {
-		release:{			
+		release:{
 			get: function(req,res){
-
 				res.render("index", {application:req.params.app_name});
-
 			}
 		}
 	}
