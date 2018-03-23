@@ -8,9 +8,13 @@ info:
     name: Bruno Cruz
     email: brunolimacruz@gmail.com
 
-
-basePath: /api/
+basePath: /api
 host: localhost:7000
+
+consumes:
+  - application/json
+produces:
+  - application/json
 
 schemes:
   - http
@@ -20,10 +24,6 @@ paths:
   /apps:
     post:
       summary: create an application so you can register your releases
-      consumes:
-        - application/json
-      produces:
-        - application/json
       parameters:
         - in: body
           name: application
@@ -33,16 +33,47 @@ paths:
       responses:
         "201":
           description: Application created
+    get:
+      summary: list applications
+      responses:
+        '200':
+          description: applications
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Application'
 
-  /apps/{app_id}/releases:
+  /apps/{app_name}/issues:
+    put:
+      summary: change issue patterns from an application
+      parameters:
+        - name: app_name
+          in: path
+          required: true
+          type: string
+        - in: body
+          name: issue_pattern
+          required: true
+          schema:
+            $ref: "#/definitions/IssuePattern"
+      responses:
+        "204":
+          description: Pattens updated
+    get:
+      summary: list applications
+      responses:
+        '200':
+          description: applications
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Application'
+
+  /apps/{app_name}/releases:
     post:
       summary: creates a release
-      consumes:
-        - application/json
-      produces:
-        - application/json
       parameters:
-        - name: app_id
+        - name: app_name
           in: path
           required: true
           type: string
@@ -50,15 +81,15 @@ paths:
           in: body
           required: true
           schema:
-            $ref: "#/definitions/Release"
+            $ref: '#/definitions/ReleaseNew'
       responses:
         201:
           description: Release created
-    
+
     get:
       summary: list releases from an application
       parameters:
-        - name: app_id
+        - name: app_name
           in: path
           required: true
           type: string
@@ -68,7 +99,24 @@ paths:
           schema:
             type: array
             items:
-              $ref: '#/definitions/Release'
+              $ref: '#/definitions/ReleaseList'
+
+  /apps/{app_name}/releases/{release_name}:
+    delete:
+      summary: delete a release
+      parameters:
+        - name: app_name
+          in: path
+          required: true
+          type: string
+        - name: release_name
+          in: path
+          required: true
+          type: string
+      responses:
+        204:
+          description: Release Deleted
+
 
 definitions:
 
@@ -81,6 +129,13 @@ definitions:
       milestone:
         type: string
         description: Tag name or commit hash that will be used for the first reference
+      issues:
+        type: object
+        properties:
+          patterns:
+            type: array
+            description: the issue should start with this pattern and a sequence of numbers
+
       repository:
         type: object
         description: git repository information(must have read permission)
@@ -91,7 +146,14 @@ definitions:
             type: string
             description: Repository's owner
 
-  Release:
+  IssuePattern:
+    type: object
+    properties:
+      patterns:
+        type: array
+        description: the issue should start with this pattern and a sequence of numbers
+
+  ReleaseList:
     type: object
     properties:
       name:
@@ -100,6 +162,15 @@ definitions:
       environment:
         type: string
         description: Environment where the release happened
+      reference:
+        type: object
+        properties:
+          type:
+            type: string
+            enum: [build, git]
+      issues:
+        type: array
+
       diff:
         type: object
         properties:
@@ -107,6 +178,13 @@ definitions:
             type: integer
             format: int32
             description: Difference from the previous release(milliseconds)
+          percentile_95:
+            type: integer
+            format: int32
+          size:
+            type: integer
+            format: int32
+            description: Amount of commits
           additions:
             type: integer
             format: int32
@@ -115,3 +193,31 @@ definitions:
             type: integer
             format: int32
             description: Lines removed in this release
+
+  ReleaseNew:
+    type: object
+    properties:
+      name:
+        type: string
+        description: Releases' name, it has to be a tag our commit hash
+      environment:
+        type: string
+        description: Environment where the release happened
+        example: production
+      reference:
+        type: object
+        properties:
+          type:
+            type: string
+            enum: [build, git]
+
+  Team:
+    type: object
+    properties:
+      amount:
+        type: integer
+        format: int32
+      since:
+        type: string
+        format: date
+        example: "2000-12-31"

@@ -1,10 +1,12 @@
 {
   "name": "agility_deployment",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "How long takes you project to go production?",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "debug_local":"CLIENT_ID= CLIENT_SECRET= REFRESH_TOKEN= MONGODB=mongodb://localhost:9000/agility nodemon index.js",
+    "debug_remote":"CLIENT_ID= CLIENT_SECRET= REFRESH_TOKEN= MONGODB=mongodb://localhost:9000/agility nodemon index.js",
     "start": "node index.js"
   },
   "repository": {
@@ -23,6 +25,7 @@
   },
   "homepage": "https://github.com/bruno1cruz/agility_deployment#readme",
   "dependencies": {
+    "array-unique": "^0.3.2",
     "body-parser": "^1.16.1",
     "client-oauth2": "^3.4.1",
     "cors": "^2.8.1",
@@ -30,10 +33,12 @@
     "express": "^4.14.1",
     "express-load": "^1.1.15",
     "moment": "^2.17.1",
-    "mongoose": "^4.8.5",
+    "mongoose": "^5.0.10",
+    "nodemon": "^1.17.2",
     "parse-diff": "^0.4.0",
     "promise": "^7.1.1",
     "request": "^2.79.0",
-    "stats-lite": "^2.0.4"
+    "stats-lite": "^2.0.4",
+    "winston": "^2.3.1"
   }
 }
