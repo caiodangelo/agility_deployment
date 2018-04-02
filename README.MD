@@ -84,7 +84,7 @@ When you genenerate the access token you also get the refresh code. Save it so y
 
 ```
 
-curl -X POST -H'Authorization: Basic {key\_and\_scret\_base64\_encoded}' https://bitbucket.org/site/oauth2/access_token -d grant_type=refresh_token -d refresh_token={refresh_token}
+curl -X POST -H'Authorization: Basic {key_and_scret_base64_encoded}' https://bitbucket.org/site/oauth2/access_token -d grant_type=refresh_token -d refresh_token={refresh_token}
 
 ```
 
